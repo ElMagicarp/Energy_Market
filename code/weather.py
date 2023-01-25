@@ -4,6 +4,7 @@
 
 import random
 import matplotlib.pyplot as plt
+import threading
 from math import *
 
 # -------------------------------------------
@@ -14,7 +15,7 @@ from math import *
 
 # -------------------------------------------
 # CLASSES METEO
-class Meteo():
+class Weather():
     '''
     Arguments: t (int) : jour de l'année
     Méthodes: jourAnnee() : renvoie le jour de l'année
@@ -27,6 +28,20 @@ class Meteo():
     def __init__(self,t):
         self.t = t
     
+    #mise à jour paramétres de meteo 
+    def dataJour(self, dict):
+        temperature = threading.Thread(target=self.tempJour, args=(dict))
+        windSpeed = threading.Thread(target=self.ventJour, args=(dict))
+        sunbeam = threading.Thread(target=self.ensJour, args=(dict))
+
+        temperature.start()
+        windSpeed.start()
+        sunbeam.start()
+
+        temperature.join()
+        windSpeed.join()
+        sunbeam.join()
+
     # Définition du jour de l'année en fonction de t
     def jourAnnee(self):
         mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -40,26 +55,26 @@ class Meteo():
 
     # Définition de la température quotidienne
     "Température en °C"
-    def tempJour(self):
+    def tempJour(self,dict):
         coefSaison = -sin(2*pi*self.t/365-250)*15 + 14.5 
         bruit = random.random()*5*random.randint(-1,1)
-        return coefSaison + bruit
+        dict["temperature"]= coefSaison + bruit
 
     # Définition de l'ensoleillement moyen en 24h
     "Taux d'ensoleillement entre 0 et 1"
-    def ensJour(self):
+    def ensJour(self,dict):
         (heuresEnsAnnee,heureAnnee) = (2001.9, 8760)
         fmoy = heuresEnsAnnee/heureAnnee
         coefsaison = fmoy - 0.1*sin(2*pi*self.t/365-250)
         bruit = random.random()*0.075*random.randint(-1,1)
-        return coefsaison + bruit
+        dict["sunBeam"] = coefsaison + bruit
     
     # Définition du vent moyen en 24h
     "Indice entre 0 et 10"
-    def ventJour(self):
+    def ventJour(self,dict):
         coefSaison = 5 + 2*sin(2*pi*self.t/365-250)
         bruit = random.random()*3*random.randint(-1,1)
-        return coefSaison + bruit
+        dict["wind"]=  coefSaison + bruit
     
     # Affichage des statistiques du jour
     def afficheStatJour(self):
@@ -71,6 +86,7 @@ class Meteo():
 
 
 # -------------------------------------------
+'''
 # Quelles Stats aujourd'hui ?
 Meteo(23).afficheStatJour()
 
@@ -81,12 +97,4 @@ for k in range(365):
     Y.append(Meteo(k).tempJour())
 plt.plot(X,Y)
 plt.show()
-
-
-
-
-
-
-
-
-
+'''

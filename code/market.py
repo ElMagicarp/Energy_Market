@@ -1,14 +1,14 @@
 import sys
 import os
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Manager, Pipe
 import signal
 import threading
 import sysv_ipc
 import socket
-import external
-import weather
+from external import External
+from weather import Weather
 
-class InternalFactor():
+class Factor():
 
     def __init__(self, type ,weight, value = 0):
         self.type = type
@@ -16,19 +16,12 @@ class InternalFactor():
         self.value = value
 
 
-class ExternalFactor():
-
-    def __init__(self, weight, value):
-        self.weight = weight
-        self.value = value
-
-
 class Market():
 
-    def __init__(self, currentEnergyPrice = 1, longtermeAttenuation = 1 , amoutEnergyBought = 0, amoutEnergySold = 0, internalFactors =[], externalFactors =[]):
+    def __init__(self, currentEnergyPrice = 1, longtermeAttenuation = 1 , amoutEnergyBought = 0, amoutEnergySold = 0, internalFactors ={}, externalFactors ={}):
         signal.signal(signal.SIGUSR1, handler)
         parentConn,childConn = Pipe()
-        self.connPipe = [parentConn,childConn]
+        self.connPipe = {"parentConn":parentConn,"childConn":childConn}
         self.currentEnergyPrice = currentEnergyPrice
         self.longtermeAttenuation = longtermeAttenuation
         self.amoutEnergyBought = amoutEnergyBought
@@ -43,34 +36,54 @@ class Market():
 
 if __name__ == '__main__':
 
-    tempFactor = InternalFactor("weather", 0.001, None)
-    warEvent = ExternalFactor(0.2, 0)
-    petrolCrisisEvent = ExternalFactor(0.05, 0)
+    with Manager() as manager:
 
-    energyMarket = Market(currentEnergyPrice=0.145, longtermeAttenuation= 0.99, internalFactors=[tempFactor], externalFactors=[warEvent,petrolCrisisEvent])
-    externalGenerator = external(os.getpid(),(energyMarket.connPipe)[1])
-    weatherGenerator = weather()
+        #_initialisation_facteurCalcul_-----------------------------------------------------------
+        tempFactor = Factor("temperature", 0.001, 0)
+        windSpeedFactor = Factor("wind", 0.001, 0)
+        sunBeamFactor = Factor("sunbeam", 0.001, 0)
+        warEvent = Factor("warEvent",0.2, 0)
+        petrolCrisisEvent = Factor("petrolCrisisEvent",0.05, 0)
 
-    externalProcess = Process(target= externalGenerator.run, args=())
-    weatherProcess = Process(target= weatherGenerator.run, args=())
+        #_initialisation_Objets_parent/child_-----------------------------------------------------
+        energyMarket = Market(currentEnergyPrice=0.145, longtermeAttenuation= 0.99, internalFactors={tempFactor.type:tempFactor,windSpeedFactor.type:windSpeedFactor,sunBeamFactor.type:sunBeamFactor}, externalFactors={warEvent.type:warEvent, petrolCrisisEvent.type:petrolCrisisEvent})
+        externalGenerator = External()
+        weatherGenerator = Weather(0)
 
-    while True:
-        externalProcess.start()
-        weatherProcess.start()
-        externalProcess.join()
-        weatherProcess.join()
+        #_initialisation_sharedMemory_weatherFactor_----------------------------------------------
+        weatherFactor = manager.dict("temperature","wind","sunBeam")
 
-        energyMarket.computeCurrentEnergyPrice()
+        #_initialisation_Process_updateFacteurCalcul----------------------------------------------
+        externalProcess = Process(target= externalGenerator.run, args=((energyMarket.connPipe)["childConn"]))
+        weatherProcess = Process(target= weatherGenerator.dataJour, args=(weatherFactor))
 
+        #_routine_--------------------------------------------------------------------------------
+        while True:
 
+            #_lunch_Process_updateFacteurCalcul---------------------------------------------------
+            externalProcess.start()
+            weatherProcess.start()
 
+            #_wait_Process_updateFacteurCalcul----------------------------------------------------
+            externalProcess.join()
+            weatherProcess.join()
+
+            #_update_weatherFactor----------------------------------------------------------------
+            tempFactor.value = weatherFactor["temperature"]
+            windSpeedFactor.value = weatherFactor["wind"]
+            sunBeamFactor.value = weatherFactor["sunBeam"]
+
+            #_calcul_currentEnergyPrice-----------------------------------------------------------
+            energyMarket.computeCurrentEnergyPrice()
+
+            weatherGenerator.t+=1
 
 
 def handler (self,sig,frame):
         if sig == signal.SIGUSR1:
-            self.externalFactors[0].value = self.connPipe[0].recv()
+            self.externalFactors[warEvent.type].value = self.connPipe["parentConn"].recv()
         if sig == signal.SIGUSR2:
-            self.externalFactors[1].value = self.connPipe[0].recv()
+            self.externalFactors[petrolCrisisEvent.type].value = self.connPipe["parentConn"].recv()
 
     
 def computeContribution(factor):
@@ -80,5 +93,5 @@ def computeContribution(factor):
         result+=event.weight*event.value
     return result
 
-    
+        
 

@@ -3,15 +3,43 @@
 # --------------------------- #
 
 import random
-from math import exp
+
+import os
+import signal
+import time
+from multiprocessing import Process
 
 # ----------------------------
 # Define External Class :
 class External:
     '''
-    Génère un coefficient €[0,1] par un modèle exponnentiel ( il y a plus de chance d'obtenir un nombre proche de 0 que de 1
+    Génère le coefficient qui représente les facteurs extérieurs, 
     '''
+
     def __init__(self):
-        self.externalCoef = exp(-random.choice([k for k in range(15)]))
+        self.listCoef = {"warEvent" : 0,
+                         "petrolCrisisEvent" :0}
+    
+    def run(self):
+        x = random.random()
+        if self.listCoef["warEvent"] == 0:
+            if x < 0.05 :
+                self.listCoef["warEvent"] =1
+        else:
+            if x < 0.35:
+                self.listCoef["petrolCrisisEvent"] =0
+        if self.listCoef["petrolCrisisEvent"] == 0:
+            if x < 0.05 :
+                self.listCoef["petrolCrisisEvent"] =1
+        else:
+            if x < 0.35:
+                self.listCoef["petrolCrisisEvent"] =0
+        
 
 # ----------------------------
+# Multiprocessing
+
+def child_external():
+    os.kill(os.getpid(), signal.SIGUSR1)
+    while True:
+        monCoefExternal = External.run()

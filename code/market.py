@@ -10,6 +10,15 @@ from external import External
 from weather import Weather
 from genHome import listeMaison, Maison
 
+global event
+global parentPipe
+
+def handler (sig,frame):
+        if sig == signal.SIGUSR1:
+            event[0]= parentPipe.recv()
+        if sig == signal.SIGUSR2:
+            event[1] = parentPipe.recv()
+
 class Factor():
 
     def __init__(self, type ,weight, value = 0):
@@ -21,8 +30,7 @@ class Factor():
 class Market():
 
     def __init__(self, currentEnergyPrice = 1, longtermeAttenuation = 1 , amoutEnergyBought = 0, amoutEnergySold = 0, internalFactors ={}, externalFactors ={}):
-        parentConn,childConn = Pipe()
-        self.connPipe = {"parentConn":parentConn,"childConn":childConn}
+        self.connPipe = {"parentConn":None,"childConn":None}
         self.currentEnergyPrice = currentEnergyPrice
         self.longtermeAttenuation = longtermeAttenuation
         self.amoutEnergyBought = amoutEnergyBought
@@ -42,14 +50,6 @@ class Market():
         
         return res
 
-
-def handler (self,sig,frame):
-        if sig == signal.SIGUSR1:
-            self.externalFactors[warEvent.type].value = self.connPipe["parentConn"].recv()
-        if sig == signal.SIGUSR2:
-            self.externalFactors[petrolCrisisEvent.type].value = self.connPipe["parentConn"].recv()
-
-    
 def computeContribution(factor):
     
     result=0
@@ -60,7 +60,10 @@ def computeContribution(factor):
 
 if __name__ == '__main__':
 
-    print("Starting process market")
+    signal.signal(signal.SIGUSR1, handler)
+    signal.signal(signal.SIGUSR2, handler)
+
+    #print("Starting process market\n")
     with Manager() as manager:
 
         #_initialisation_facteurCalcul_-----------------------------------------------------------
@@ -78,37 +81,46 @@ if __name__ == '__main__':
                                 internalFactors={energyBought.type:energyBought,energySold.type:energySold,tempFactor.type:tempFactor,windSpeedFactor.type:windSpeedFactor,sunBeamFactor.type:sunBeamFactor}, 
                                 externalFactors={warEvent.type:warEvent, petrolCrisisEvent.type:petrolCrisisEvent}
                             )
-        signal.signal(signal.SIGUSR1, handler)
+        event=[0,0]
         externalGenerator = External()
         weatherGenerator = Weather(0)
 
         #_initialisation_sharedMemory_weatherFactor_----------------------------------------------
         weatherFactor = manager.list([0,0,0])
-        print(weatherFactor)
+
+        #_creation_maisons_-----------------------------------------------------------------------
+        NOMBRE_HOME = 0
+        genHomeProcess = Process(target= listeMaison, args=(NOMBRE_HOME,weatherFactor,))
+        genHomeProcess.start()
+        genHomeProcess.join()
 
         #_initialisation_semaphore_weatherFactor_-------------------------------------------------
         weatherSem = Semaphore(0)
 
-        #_initialisation_Process_updateFacteurCalcul----------------------------------------------
-        nbHome = 0
-        externalProcess = Process(target= externalGenerator.run, args=((energyMarket.connPipe)["childConn"],))
-        weatherProcess = Process(target= weatherGenerator.dataJour, args=(weatherFactor,weatherSem,))
-        genHomeProcess = Process(target= listeMaison, args=(nbHome,weatherFactor,))
+        #_initialisation_durée_simulation---------------------------------------------------------
+        NOMBRE_JOUR = 10
 
         #_routine_--------------------------------------------------------------------------------
-        while True:
+        for i in range(NOMBRE_JOUR):
+            print("JOUR "+ str(i)+"\n")
+            print("PID "+str(os.getpid()))
+
+            #_initialisation_pipe_weatherFactor_---------------------------------------------------
+            parentPipe,childConn = Pipe()
+            energyMarket.connPipe["parentConn"] = parentPipe
+            energyMarket.connPipe["childConn"] = childConn
+
+            #_initialisation_Process_updateFacteurCalcul-------------------------------------------
+            externalProcess = Process(target= externalGenerator.run, args=((energyMarket.connPipe)["childConn"],))
+            weatherProcess = Process(target= weatherGenerator.dataJour, args=(weatherFactor,weatherSem,))
 
             #_lunch_Process_updateFacteurCalcul---------------------------------------------------
-            try:
-                externalProcess.start()
-            except:
-                print("event unchanged")
-
+            externalProcess.start()
             weatherProcess.start()
 
             #_wait_Process_updateFacteurCalcul----------------------------------------------------
             externalProcess.join()
-            print("Current Event {}\n".format(str(energyMarket.eventIsActive())))
+            print("Current Event {}".format(str(energyMarket.eventIsActive())))
             weatherProcess.join()
 
             #_wait_update_weatherFactor------------------------------------------------------------
@@ -116,23 +128,23 @@ if __name__ == '__main__':
 
              #_update_weatherFactor----------------------------------------------------------------
             tempFactor.value = weatherFactor[0]
-            print("Current temperature {}\n".format(str(tempFactor.value)))
+            print("Current temperature {}".format(str(tempFactor.value)))
 
             windSpeedFactor.value = weatherFactor[1]
-            print("Current wind {}\n".format(str(windSpeedFactor.value)))
+            print("Current wind {}".format(str(windSpeedFactor.value)))
 
             sunBeamFactor.value = weatherFactor[2]
-            print("Current sunBeam {}\n".format(str(sunBeamFactor.value)))
+            print("Current sunBeam {}".format(str(sunBeamFactor.value)))
 
 
             #_calcul_currentEnergyPrice-----------------------------------------------------------
             energyMarket.computeCurrentEnergyPrice()
 
             print("Current energy price {}\n".format(str(energyMarket.currentEnergyPrice)))
-
+            
             weatherGenerator.t+=1
 
-print("Ending process market")
+#print("Ending process market\n")
 
 
     

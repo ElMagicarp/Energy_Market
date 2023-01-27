@@ -22,7 +22,9 @@ class External:
 
     def run(self, childPipe):
         
-        print("Starting process external")
+        #print("Starting process external\n")
+        warChange = False
+        petrolChange = False
 
         "Vérification changement War"
         xWar = random.random()
@@ -31,8 +33,9 @@ class External:
                 self.listCoef["warEvent"]=1
             else:
                 self.listCoef["warEvent"]=0
+            print(os.getppid())
             os.kill(os.getppid(), signal.SIGUSR1)
-            childPipe.send(self.listCoef["warEvent"])
+            warChange= True
 
         "Vérification changement Petrol"
         xPetrol = random.random()
@@ -41,7 +44,13 @@ class External:
                 self.listCoef["petrolCrisisEvent"]=1
             else:
                 self.listCoef["petrolCrisisEvent"]=0
+            print(os.getppid())
             os.kill(os.getppid(), signal.SIGUSR2)
-            childPipe.send(self.listCoef["petrolCrisisEvent"])
+            petrolChange= True
+        
+        if warChange or petrolChange:
+            childPipe.send(self.listCoef)
 
-        print("Ending process external")
+        
+
+        #print("Ending process external\n")

@@ -31,7 +31,7 @@ class Weather():
     #mise à jour paramétres de meteo 
     def dataJour(self, list, sem):
 
-        print("Starting process dataJour")
+        #print("Starting process dataJour\n")
 
         waitTemp = Semaphore(0)
         waitWind = Semaphore(0)
@@ -54,7 +54,7 @@ class Weather():
         waitSunBeam.acquire()
         sem.release()
 
-        print("Starting process dataJour")
+        #print("Ending process dataJour\n")
 
     # Définition du jour de l'année en fonction de t
     def jourAnnee(self):
@@ -70,34 +70,34 @@ class Weather():
     # Définition de la température quotidienne
     "Température en °C"
     def tempJour(self,list,waitData):
-        print("Starting thread:", threading.current_thread().name)
+        #print("Starting thread:", threading.current_thread().name)
         coefSaison = -sin(2*pi*self.t/365-250)*15 + 14.5 
         bruit = random.random()*5*random.randint(-1,1)
         list[0]= coefSaison + bruit
         waitData.release()
-        print("Ending thread:", threading.current_thread().name)
+        #print("Ending thread:", threading.current_thread().name)
 
     # Définition de l'ensoleillement moyen en 24h
     "Taux d'ensoleillement entre 0 et 1"
     def ensJour(self,list,waitData):
-        print("Starting thread:", threading.current_thread().name)
+        #print("Starting thread:", threading.current_thread().name)
         (heuresEnsAnnee,heureAnnee) = (2001.9, 8760)
         fmoy = heuresEnsAnnee/heureAnnee
         coefsaison = fmoy - 0.1*sin(2*pi*self.t/365-250)
         bruit = random.random()*0.075*random.randint(-1,1)
         list[2] = coefsaison + bruit
         waitData.release()
-        print("Ending thread:", threading.current_thread().name)
+        #print("Ending thread:", threading.current_thread().name)
     
     # Définition du vent moyen en 24h
     "Indice entre 0 et 10"
     def ventJour(self,list,waitData):
-        print("Starting thread:", threading.current_thread().name)
+        #print("Starting thread:", threading.current_thread().name)
         coefSaison = 5 + 2*sin(2*pi*self.t/365-250)
         bruit = random.random()*3*random.randint(-1,1)
         list[1]=  coefSaison + bruit
         waitData.release()
-        print("Ending thread:", threading.current_thread().name)
+        #print("Ending thread:", threading.current_thread().name)
     
     '''
     # Affichage des statistiques du jour

@@ -21,6 +21,8 @@ class External:
         self.listCoef = {"warEvent" : 0, "petrolCrisisEvent" :0}
 
     def run(self, childPipe):
+        
+        print("Starting process external")
 
         "Vérification changement War"
         xWar = random.random()
@@ -41,3 +43,5 @@ class External:
                 self.listCoef["petrolCrisisEvent"]=0
             os.kill(os.getppid(), signal.SIGUSR2)
             childPipe.send(self.listCoef["petrolCrisisEvent"])
+
+        print("Ending process external")

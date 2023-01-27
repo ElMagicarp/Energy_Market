@@ -1,9 +1,9 @@
 # ------------------------ #
 # ** WHEATER SIMULATION ** #
 # ------------------------ #
-
+from multiprocessing import Semaphore, Manager, Process
 import random
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import threading
 from math import *
 
@@ -29,10 +29,17 @@ class Weather():
         self.t = t
     
     #mise à jour paramétres de meteo 
-    def dataJour(self, dict):
-        temperature = threading.Thread(target=self.tempJour, args=(dict))
-        windSpeed = threading.Thread(target=self.ventJour, args=(dict))
-        sunbeam = threading.Thread(target=self.ensJour, args=(dict))
+    def dataJour(self, list, sem):
+
+        print("Starting process dataJour")
+
+        waitTemp = Semaphore(0)
+        waitWind = Semaphore(0)
+        waitSunBeam = Semaphore(0)
+
+        temperature = threading.Thread(target=self.tempJour, args=(list,waitTemp,))
+        windSpeed = threading.Thread(target=self.ventJour, args=(list,waitWind,))
+        sunbeam = threading.Thread(target=self.ensJour, args=(list,waitSunBeam,))
 
         temperature.start()
         windSpeed.start()
@@ -41,6 +48,13 @@ class Weather():
         temperature.join()
         windSpeed.join()
         sunbeam.join()
+
+        waitTemp.acquire()
+        waitWind.acquire()
+        waitSunBeam.acquire()
+        sem.release()
+
+        print("Starting process dataJour")
 
     # Définition du jour de l'année en fonction de t
     def jourAnnee(self):
@@ -55,27 +69,37 @@ class Weather():
 
     # Définition de la température quotidienne
     "Température en °C"
-    def tempJour(self,dict):
+    def tempJour(self,list,waitData):
+        print("Starting thread:", threading.current_thread().name)
         coefSaison = -sin(2*pi*self.t/365-250)*15 + 14.5 
         bruit = random.random()*5*random.randint(-1,1)
-        dict["temperature"]= coefSaison + bruit
+        list[0]= coefSaison + bruit
+        waitData.release()
+        print("Ending thread:", threading.current_thread().name)
 
     # Définition de l'ensoleillement moyen en 24h
     "Taux d'ensoleillement entre 0 et 1"
-    def ensJour(self,dict):
+    def ensJour(self,list,waitData):
+        print("Starting thread:", threading.current_thread().name)
         (heuresEnsAnnee,heureAnnee) = (2001.9, 8760)
         fmoy = heuresEnsAnnee/heureAnnee
         coefsaison = fmoy - 0.1*sin(2*pi*self.t/365-250)
         bruit = random.random()*0.075*random.randint(-1,1)
-        dict["sunBeam"] = coefsaison + bruit
+        list[2] = coefsaison + bruit
+        waitData.release()
+        print("Ending thread:", threading.current_thread().name)
     
     # Définition du vent moyen en 24h
     "Indice entre 0 et 10"
-    def ventJour(self,dict):
+    def ventJour(self,list,waitData):
+        print("Starting thread:", threading.current_thread().name)
         coefSaison = 5 + 2*sin(2*pi*self.t/365-250)
         bruit = random.random()*3*random.randint(-1,1)
-        dict["wind"]=  coefSaison + bruit
+        list[1]=  coefSaison + bruit
+        waitData.release()
+        print("Ending thread:", threading.current_thread().name)
     
+    '''
     # Affichage des statistiques du jour
     def afficheStatJour(self):
         print("\nNous sommes le ", self.jourAnnee()[0], " ", self.jourAnnee()[1])
@@ -83,6 +107,7 @@ class Weather():
         print("Taux d'Ensoleillement : ", self.ensJour())
         print("Indice de Vent : ", self.ventJour(), "\n")
         return None
+    '''
 
 
 # -------------------------------------------

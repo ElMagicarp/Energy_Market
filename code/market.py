@@ -10,14 +10,18 @@ from external import External
 from weather import Weather
 from genHome import listeMaison, Maison
 
-global event
-global parentPipe
+global externalEvent
+global pipe
 
 def handler (sig,frame):
         if sig == signal.SIGUSR1:
-            event[0]= parentPipe.recv()
-        if sig == signal.SIGUSR2:
-            event[1] = parentPipe.recv()
+            print("\n#EVENT#\n")
+            event = (pipe["parentConn"].recv())
+            print(externalGenerator.listCoef)
+            externalGenerator.listCoef = event
+            externalEvent["warEvent"].value=externalGenerator.listCoef['warEvent']
+            externalEvent["petrolCrisisEvent"].value=externalGenerator.listCoef['petrolCrisisEvent']
+
 
 class Factor():
 
@@ -29,8 +33,8 @@ class Factor():
 
 class Market():
 
-    def __init__(self, currentEnergyPrice = 1, longtermeAttenuation = 1 , amoutEnergyBought = 0, amoutEnergySold = 0, internalFactors ={}, externalFactors ={}):
-        self.connPipe = {"parentConn":None,"childConn":None}
+    def __init__(self, currentEnergyPrice = 1, longtermeAttenuation = 1 , amoutEnergyBought = 0, amoutEnergySold = 0, internalFactors = {}, externalFactors = {}, connPipe = {}):
+        self.connPipe = connPipe
         self.currentEnergyPrice = currentEnergyPrice
         self.longtermeAttenuation = longtermeAttenuation
         self.amoutEnergyBought = amoutEnergyBought
@@ -45,13 +49,14 @@ class Market():
     def eventIsActive(self):
         res = []
         for event in self.externalFactors:
-            if (self.externalFactors[event]).value == 1:
-                res.append((self.externalFactors[event]).type)
-        
+            print (self.externalFactors[event].type)
+            print (str(self.externalFactors[event].value) + "\n")
+            if self.externalFactors[event].value == 1:
+                res.append(self.externalFactors[event].type)
         return res
 
+
 def computeContribution(factor):
-    
     result=0
     for event in factor:
         result+=(factor[event]).weight*(factor[event]).value
@@ -60,6 +65,7 @@ def computeContribution(factor):
 
 if __name__ == '__main__':
 
+    #_initialisation_SignalHandler_---------------------------------------------------------------
     signal.signal(signal.SIGUSR1, handler)
     signal.signal(signal.SIGUSR2, handler)
 
@@ -73,14 +79,20 @@ if __name__ == '__main__':
         energyBought = Factor("bought", 0.01, 0)
         energySold = Factor("sold", 0.01, 0)
         warEvent = Factor("warEvent",0.2, 0)
-        petrolCrisisEvent = Factor("petrolCrisisEvent",0.05, 0)
+        petrolCrisisEvent = Factor("petrolCrisisEvent",0.1, 0)
 
         #_initialisation_Objets_parent/child_-----------------------------------------------------
-        energyMarket = Market(  currentEnergyPrice=0.145, 
-                                longtermeAttenuation= 0.99, 
-                                internalFactors={energyBought.type:energyBought,energySold.type:energySold,tempFactor.type:tempFactor,windSpeedFactor.type:windSpeedFactor,sunBeamFactor.type:sunBeamFactor}, 
-                                externalFactors={warEvent.type:warEvent, petrolCrisisEvent.type:petrolCrisisEvent}
-                            )
+        externalEvent = {"warEvent":warEvent
+                        ,"petrolCrisisEvent":petrolCrisisEvent}
+
+        energyMarket = Market(  currentEnergyPrice = 0.145, 
+                                longtermeAttenuation = 0.99, 
+                                internalFactors = {"bought":energyBought
+                                                ,"sold":energySold
+                                                ,"temperature":tempFactor
+                                                ,"wind":windSpeedFactor
+                                                ,"sunbeam":sunBeamFactor}, 
+                                externalFactors = externalEvent)
         event=[0,0]
         externalGenerator = External()
         weatherGenerator = Weather(0)
@@ -98,7 +110,7 @@ if __name__ == '__main__':
         weatherSem = Semaphore(0)
 
         #_initialisation_durée_simulation---------------------------------------------------------
-        NOMBRE_JOUR = 10
+        NOMBRE_JOUR = 30
 
         #_routine_--------------------------------------------------------------------------------
         for i in range(NOMBRE_JOUR):
@@ -106,12 +118,13 @@ if __name__ == '__main__':
             print("PID "+str(os.getpid()))
 
             #_initialisation_pipe_weatherFactor_---------------------------------------------------
-            parentPipe,childConn = Pipe()
-            energyMarket.connPipe["parentConn"] = parentPipe
-            energyMarket.connPipe["childConn"] = childConn
+            parentConn, childConn = Pipe()
+            pipe = {"parentConn": parentConn
+                    ,"childConn": childConn}
+            energyMarket.connPipe = pipe
 
             #_initialisation_Process_updateFacteurCalcul-------------------------------------------
-            externalProcess = Process(target= externalGenerator.run, args=((energyMarket.connPipe)["childConn"],))
+            externalProcess = Process(target= externalGenerator.run, args=(externalGenerator,energyMarket.connPipe["childConn"],))
             weatherProcess = Process(target= weatherGenerator.dataJour, args=(weatherFactor,weatherSem,))
 
             #_lunch_Process_updateFacteurCalcul---------------------------------------------------
@@ -120,10 +133,11 @@ if __name__ == '__main__':
 
             #_wait_Process_updateFacteurCalcul----------------------------------------------------
             externalProcess.join()
-            print("Current Event {}".format(str(energyMarket.eventIsActive())))
+            print("Current Event war {}, petrol {}".format(str(energyMarket.externalFactors["warEvent"].value),str(energyMarket.externalFactors["petrolCrisisEvent"].value)))
             weatherProcess.join()
 
             #_wait_update_weatherFactor------------------------------------------------------------
+            energyMarket.externalFactors = externalEvent
             weatherSem.acquire()
 
              #_update_weatherFactor----------------------------------------------------------------

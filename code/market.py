@@ -12,7 +12,6 @@ from weather import Weather
 from genHome import run, Maison
 
 global externalEvent
-global pipe
 
 def handler (sig,frame):
         if sig == signal.SIGUSR1:
@@ -115,6 +114,7 @@ def routine(NOMBRE_JOUR):
 
         #_initialisation_pipe_weatherFactor_---------------------------------------------------
         parentConn, childConn = Pipe()
+        global pipe
         pipe = {"parentConn": parentConn
                 ,"childConn": childConn}
         energyMarket.connPipe = pipe
@@ -214,11 +214,11 @@ if __name__ == '__main__':
         #_initialisation_Server_Socket_-----------------------------------------------------------
         HOST = "localhost"
         PORT = 1789
-        socketGestioner = threading.thread (target =socketConnect,args=(HOST, PORT,))
+        socketGestioner = threading.Thread (target =socketConnect,args=(HOST, PORT,))
     
         #_initialisation_durée_simulation---------------------------------------------------------
         NOMBRE_JOUR = 30
-        routineMarket = threading.thread (target = routine, args=(NOMBRE_JOUR,))
+        routineMarket = threading.Thread (target = routine, args=(NOMBRE_JOUR,))
 
         socketGestioner.start()
         routineMarket.start()

@@ -7,6 +7,7 @@
 import socket
 import random
 
+#-----------------------------------------------
 # Définition de la classe "Maison"
 
 class Maison:
@@ -14,11 +15,17 @@ class Maison:
     classe représentant une maison
     ## Attribut
     - quantiteEnergie : quantité d'énergie de la maison (None)
+    - haveSolarPanel : retourne Vrai si la maison possède des panneaux solaires (Bool)
+    - haveWindTurbine : retounre Faux si la maison possède une éoliène (Bool)
+    - nombrePersonnes : Nombre de personne dans une maison (int)
+    - listeVoisins : Liste des maisons dans notre système (list)
+    _ listBesoinListe : liste qui énumère pour chaque jour la consommation énergétique nécessaire (float)
     ## Méthodes
-    - ajoutEnergie : ajoute de l'énergie à la maison (None)
-    - utiliseEnergie : utilise de l'energie (None)
-    - besoinEnergie : Retourne le besoin d'énergie journalier de la maison en fonction de la température et du nombre de personne
-    - demandePrix : Demande le prix du kwh jounalier
+    - besoinEnergie : Retourne le besoin d'énergie journalier de la maison en fonction de la température et du nombre de personne (float)
+    - demandePrix : Demande le prix du kwh jounalier (float)
+    - productionEnergie : Retourne la quantité d'énergie quotidienne fournie par la maison et l'ajoute à quantiteEnergie (float)
+    - faireUneSocket : process de socket entre genHome et market
+    - run : actions quotidiennes d'une maison
     '''
     def __init__(self, quantiteEnergie, haveSolarPanel, haveWindTurbine, weatherSharedMemory, listeVoisins = []):
 
@@ -52,6 +59,8 @@ class Maison:
             energie += self.weatherSharedMemory[2] * 2
         if self.haveWindTurbine == True:
             energie += self.weatherSharedMemory[1] * 2/10
+            self.quantiteEnergie += energie
+        
         return energie
         
     
@@ -73,8 +82,33 @@ class Maison:
 
             "Fermer la connexion"
             client_socket.close()
+            
+            
+    def run(self):
+    # TODO : ajouter un système de payement ?
+        '''Fonction Principal pour faire les opérations sur une maison'''
+        self.quantiteEnergie -=  self.besionEnergie()
+        if self.quantiteEnergie < 0 :
+            "Vérifie si les voisins on des surplus d'énergie"
+            for voisin in self.listeVoisins:
+                if voisin.quantiteEnergie > 0:
+                    if self.quantiteEnergie + voisin.quantiteEnergie >0:
+                        voisin.quantiteEnergie -= self.quantiteEnergie
+                        self.quantiteEnergie = 0
+                        break
+                    else:
+                        self.quantiteEnergie += voisin.quantiteEnergie
+                        voisin.quantiteEnergie = 0
+            "Si les voisins n'ont pas assez d'energie, la maison achète de l'énerge au Market"
+            if self.quantiteEnergie < 0:
+                # TODO : achter au market l'énregie manquante quotidienne  
+                self.quantiteEnergie = 0 
+            
+                
+                    
 
-
+#-----------------------------------------------
+# Création de la liste des maisons de notre système
 
 def listeMaison(nombreMaison, weatherSharedMemory):
 
@@ -93,3 +127,4 @@ def routineMaison(maison):
 
     '''routine de la maison avec comm avec market et autres maisons'''
     pass
+

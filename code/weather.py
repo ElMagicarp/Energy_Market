@@ -32,6 +32,8 @@ class Weather():
     def dataJour(self, list, sem):
 
         #print("Starting process dataJour\n")
+        
+        self.t=list[3]
 
         waitTemp = Semaphore(0)
         waitWind = Semaphore(0)

@@ -17,8 +17,8 @@ def handler (sig,frame):
         if sig == signal.SIGUSR1:
             print("\n#EVENT#\n")
             event = (pipe["parentConn"].recv())
-            print(externalGenerator.listCoef)
             externalGenerator.listCoef = event
+            print(externalGenerator.listCoef)
             externalEvent["warEvent"].value=externalGenerator.listCoef['warEvent']
             externalEvent["petrolCrisisEvent"].value=externalGenerator.listCoef['petrolCrisisEvent']
 

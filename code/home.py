@@ -3,8 +3,12 @@ import sys
 import socket
 import random
 import threading
+from multiprocessing import Semaphore
 import sysv_ipc
 import time
+import os
+import signal
+
 
 # Définition de la classe "Maison"
 
@@ -29,7 +33,7 @@ class Maison:
     - run : actions quotidiennes d'une maison
     '''
 
-    def __init__(self, quantiteEnergie, haveSolarPanel, haveWindTurbine, havePikachu, weatherSharedMemory, listeVoisins = [], coutEnergie =0, key = 666, id = None, jour = -1):
+    def __init__(self, quantiteEnergie, haveSolarPanel, haveWindTurbine, havePikachu, weatherSharedMemory, listeVoisins = [], coutEnergie =0, key = 666, id = None, jour = -1, nombreJour=0):
         self.id = id
         self.key = key
         self.client_socket = None
@@ -43,6 +47,7 @@ class Maison:
         self.listeVoisins = listeVoisins
         self.listBesoinJour = [( -4/30 * weatherSharedMemory[0] + 7 ) * self.nombrePersonnes]
         self.jour = jour
+        self.nombreJour = nombreJour
         
     def besionEnergie(self):
         besoin = ( -4/30 * self.weatherSharedMemory[0] + 7 ) * self.nombrePersonnes
@@ -66,11 +71,18 @@ class Maison:
         
         return energie
 
-    def vendreEnergie(self):
+    def vendreEnergie(self,HOST,PORT):
+        self.client_socket=setSocketConnection(HOST, PORT)
         self.client_socket.send(str([4,self.quantiteEnergie]).encode())
 
-    def acheterEnergie(self):
+    def acheterEnergie(self,HOST,PORT):
+        self.client_socket=setSocketConnection(HOST, PORT)
         self.client_socket.send(str([1,abs(self.quantiteEnergie)]).encode())
+    
+    def isHomeAlive(self,HOST,PORT):
+        self.client_socket = setSocketConnection(HOST, PORT)
+        self.client_socket.send(str(["alive"]).encode())
+        time.sleep(1)
 
         '''
         "Vérifie si les voisins on des surplus d'énergie"
@@ -90,94 +102,115 @@ class Maison:
     def routineEchangeEnergie(self):
         pass
     
+def creatSocket(HOST,PORT):
+    clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    clientSocket.connect((HOST, PORT))
+    return clientSocket
 
+def setSocketConnection(HOST, PORT):
+    #_initialisation_socket_--------------------------------------------------------------------------------7
+    clientSocket = creatSocket(HOST, PORT)
+    print("\033[96m"+"Global socket verif maison "+str(maison.id)+" "+str(clientSocket)+"\033[0m")
+    socketHandler = threading.Thread(target = socket_handler, args = (clientSocket,HOST,PORT,))
+    socketHandler.start()
+    print("\033[96m"+"socket verif maison "+str(maison.id)+" "+str(maison.client_socket)+"\033[0m")
+    return clientSocket
 
-def socket_handler(s):
-    global client
-    while client:
+def socket_handler(s, HOST,PORT):
 
-        '''
-        msg == 1 -> requête d'éntergie
-        msg == 2 -> requête de paiement
-        msg == 3 -> ack paiement
-        msg == 4 -> requête de prix de vente de float kWh
-        msg == 5 -> réponse à 4 avec float €
-        msg == "stop" -> requête de fermeture
+    '''
+    msg == 1 -> requête d'éntergie
+    msg == 2 -> requête de paiement
+    msg == 3 -> ack paiement
+    msg == 4 -> requête de prix de vente de float kWh
+    msg == 5 -> réponse à 4 avec float €
+    msg == "stop" -> requête de fermeture
 
-        '''
-        print("Connected to server ")
+    '''
+    
+    print("\033[96m"+"Connected to server "+"\033[0m")
+    try:
         data = s.recv(4096)
         data = data.decode('utf-8')
-        msg=eval(data)
+        msg=eval(str(data))
+        print("\033[96m"+"maison "+str(maison.id)+" RECEIVED "+str(msg)+"\033[0m")
         if msg[0] == 2:
             payment = msg[1][1]
             energieAchete = msg[1][0]
+
+            print("\033[96m"+"normalement je met a jour le cout"+"\033[0m")
+            print("\033[96m"+"avant € "+str(maison.coutEnergie)+"\033[0m")
+
             maison.coutEnergie -= payment
             maison.quantiteEnergie += energieAchete
-            s.send(str([3,payment]).encode())
+
+            print("\033[96m"+"apres € "+str(maison.coutEnergie)+"\033[0m")
+            print("\033[96m"+"Energie dispo "+str(maison.quantiteEnergie)+"\033[0m")
+        
+            newS = setSocketConnection(HOST, PORT)
+            newS.send(str([3,payment]).encode())
             time.sleep(0.00001)
 
         elif msg[0] == 3:
+            print("\033[96m"+"normalement je suis payé"+"\033[0m")
+            print("\033[96m"+"normalement je met a jour le cout"+"\033[0m")
+            print("\033[96m"+"avant € "+str(maison.coutEnergie)+"\033[0m")
             maison.coutEnergie += msg[1]
+            print("\033[96m"+"apres € "+str(maison.coutEnergie)+"\033[0m")
 
         elif msg[0] == 5:
-            invoice = [maison.quantiteEnergie,msg[1]] 
+            invoice = [maison.quantiteEnergie,msg[1]]
+            newS = setSocketConnection(HOST, PORT)
             s.send(str([2,invoice]).encode())
             time.sleep(0.00001)
 
-        elif msg[0] == "stop":
-            print("Terminating client")
-            client = False
-            print("Disconnecting from server")
+        s.close()
+
+    except:
+        print("\033[91m"+"ERROR MESSAGE UNRECEIVABLE"+"\033[0m")
 
 
 
 def runHome( HOST, PORT, homeObj):
-
     #_mise_maison_varGlobale_-------------------------------------------------------------------------------
     global maison
     maison = homeObj
 
-    print("run maison "+str(maison.id))
-
-    #_initialisation_socket_--------------------------------------------------------------------------------
-    clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-    clientSocket.connect((HOST, PORT))
-    print("Global socket verif maison "+str(maison.id)+" "+str(clientSocket))
-
-    socketHandler = threading.Thread(target = socket_handler, args = (clientSocket,))
-    socketHandler.start()
-
-    maison.client_socket = clientSocket
+    print("\033[96m"+"run maison "+str(maison.id)+"\033[0m")
 
     #_initialisation_messageQueue_-----------------------------------------------------------------------
     try:
         global mq
         mq = sysv_ipc.MessageQueue(maison.key)
-        print("hello messageQueue "+str(maison.key)+" I am "+str(maison.id))
+        print("\033[96m"+"hello messageQueue "+str(maison.key)+" I am "+str(maison.id)+"\033[0m")
     except:
-        print("Cannot connect to message queue", maison.key, ", terminating.")
+        print("\033[96m"+"Cannot connect to message queue", maison.key, ", terminating."+"\033[0m")
         sys.exit(1) 
-    
-    print("socket verif maison "+str(maison.id)+" "+str(clientSocket))
 
     #_routine_-------------------------------------------------------------------------------------------
-    while client:
+    while maison.jour < maison.nombreJour:
+        
+        try:
+            if int(maison.jour) < int(maison.weatherSharedMemory[3]):
+                #_Calcul_énergie_maison_disponible_----------------------------------------------------------
+                maison.quantiteEnergie =  maison.productionEnregie() - maison.besionEnergie()
 
-        if int(maison.jour) < int(maison.weatherSharedMemory[3]):
-            #_Calcul_énergie_maison_disponible_----------------------------------------------------------
-            maison.quantiteEnergie =  maison.productionEnregie() - maison.besionEnergie()
+                #_résolution_énergie_équilibre_--------------------------------------------------------------
+                if maison.quantiteEnergie > 0 :
+                    maison.vendreEnergie(HOST,PORT)
+                elif maison.quantiteEnergie < 0 :
+                    maison.acheterEnergie(HOST,PORT)
 
-            #_résolution_énergie_équilibre_--------------------------------------------------------------
-            if maison.quantiteEnergie > 0 :
-                maison.vendreEnergie()
+                maison.jour = maison.weatherSharedMemory[3]
+                print ("\033[96m"+"jour "+str(maison.jour)+" quantité energie maison "+str(maison.id)+" : "+str(maison.quantiteEnergie)+"\033[0m")
+
             else :
-                maison.acheterEnergie()
+                maison.jour = maison.weatherSharedMemory[3]
 
-            maison.jour = maison.weatherSharedMemory[3] 
-            print ("jour "+str(maison.jour)+" quantité energie maison "+str(maison.id)+" : "+str(maison.quantiteEnergie))
+        except:
+               print("\033[96m"+"fin maison "+str(maison.id)+"\033[0m")
+               os.kill(os.getpid(), signal.SIGKILL)
 
-        maison.client_socket.send("alive".encode())
-
-    print("fin maison "+str(maison.id))
-
+    print("\033[96m"+"fin maison "+str(maison.id)+"\033[0m")
+    os.kill(os.getpid(), signal.SIGKILL)
+    

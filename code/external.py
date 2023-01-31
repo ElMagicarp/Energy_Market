@@ -51,8 +51,5 @@ class External:
             print("#SEND Event")
             childPipe.send(self.listCoef)
             os.kill(os.getppid(), signal.SIGUSR1)
-
-
         
-
-        #print("Ending process external\n")
+        print("Ending process external\n")

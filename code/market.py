@@ -90,46 +90,46 @@ def socket_handler(s, a):
     global serve
     with s:
         print("Connected to client: ", a)
-        data = s.recv(4096)
-        data = data.decode('utf-8')
-        msg=eval(data)
+        try:
+            data = s.recv(4096)
+            data = data.decode('utf-8')
+            msg=eval(str(data))
+            print("SERVER RECEIVED "+str(msg))
 
-        if msg[0] == 1:
-            invoice = [msg[1],energyMarket.currentEnergyPrice*msg[1]]
-            s.send(str([2,invoice]).encode())
-            time.sleep(0.00001)
+            if msg[0] == 1:
+                invoice = [msg[1],energyMarket.currentEnergyPrice*msg[1]]
+                s.send(str([2,invoice]).encode())
+                time.sleep(0.00001)
 
-        elif msg[0] == 2:
-            payment = msg[1][1]
-            energyMarket.energyBought += msg[1][0]
-            s.send(str([3,payment]).encode())
-            time.sleep(0.00001)
+            elif msg[0] == 2:
+                payment = msg[1][1]
+                energyMarket.energyBought += msg[1][0]
+                s.send(str([3,payment]).encode())
+                time.sleep(0.00001)
 
-        elif msg[0] == 3:
-            energyMarket.amoutEnergySold += msg[1]/energyMarket.currentEnergyPrice
+            elif msg[0] == 3:
+                print("\033[92m"+"Energie sold avant "+str(energyMarket.amoutEnergySold )+"\033[0m")
+                energyMarket.amoutEnergySold += msg[1]/energyMarket.currentEnergyPrice
+                print("\033[92m"+"Energie sold apres "+str(energyMarket.amoutEnergySold )+"\033[0m")
 
-        elif msg[0] == 4:
-            s.send(str([5,energyMarket.currentEnergyPrice*msg[1]]).encode())
-            time.sleep(0.00001)
-        
-        elif msg == "alive" and closure == True:
-            s.send(str(["stop"]).encode())
-            time.sleep(0.00001)
+            elif msg[0] == 4:
+                s.send(str([5,energyMarket.currentEnergyPrice*msg[1]]).encode())
+                time.sleep(0.00001)
 
-        elif msg[0] == "stop":
-            print("Terminating time server!")
-            serve = False
-            print("Disconnecting from client: ", a)
+            elif msg[0] == "stop":
+                print("Terminating time server!")
+                serve = False
+                print("Disconnecting from client: ", a)
+
+        except:
+            print("\033[91m"+"ERROR MESSAGE UNRECEIVABLE"+"\033[0m")
+
 
 def loopbackKill(HOST, PORT):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect((HOST, PORT))
         client_socket.send(str(["stop"]).encode())
 
-def stopSimulation(HOST, PORT):
-    global closure
-    closure = True
-    loopbackKill(HOST,PORT)
 
 def routine(NOMBRE_JOUR):
     Yprice = []
@@ -159,7 +159,7 @@ def routine(NOMBRE_JOUR):
 
         #_wait_Process_updateFacteurCalcul----------------------------------------------------
         externalProcess.join()
-        print("Current Event war {}, petrol {}".format(str(energyMarket.externalFactors["warEvent"].value),str(energyMarket.externalFactors["petrolCrisisEvent"].value)))
+        print("\033[91m"+"Current Event war {}, petrol {}".format(str(energyMarket.externalFactors["warEvent"].value),str(energyMarket.externalFactors["petrolCrisisEvent"].value))+"\033[00m")
         weatherProcess.join()
 
         #_wait_update_weatherFactor------------------------------------------------------------
@@ -168,19 +168,22 @@ def routine(NOMBRE_JOUR):
 
         #_update_weatherFactor----------------------------------------------------------------
         tempFactor.value = weatherFactor[0]
-        print("Current temperature {}".format(str(tempFactor.value)))
+        print("\033[94m "+"Current temperature {}".format(str(tempFactor.value))+"\033[00m")
 
         windSpeedFactor.value = weatherFactor[1]
-        print("Current wind {}".format(str(windSpeedFactor.value)))
+        print("\033[94m "+"Current wind {}".format(str(windSpeedFactor.value))+"\033[00m")
 
         sunBeamFactor.value = weatherFactor[2]
-        print("Current sunBeam {}".format(str(sunBeamFactor.value)))
+        print("\033[94m "+"Current sunBeam {}".format(str(sunBeamFactor.value))+"\033[00m")
 
         #_calcul_currentEnergyPrice-----------------------------------------------------------
         energyMarket.computeCurrentEnergyPrice()
         Yprice.append(energyMarket.currentEnergyPrice)
 
-        print("Current energy price {}\n".format(str(energyMarket.currentEnergyPrice)))
+        print("\033[94m "+"Current energy price {}\n".format(str(energyMarket.currentEnergyPrice))+"\033[00m")
+
+        weatherFactor[3]+=1
+
     header = ['prixJour']
     with open('price.csv', 'w', newline='') as f:
         writer = csv.writer(f)
@@ -236,7 +239,7 @@ if __name__ == '__main__':
         global endSimulation
         weatherSem = Semaphore(0) #wait update weatherFactor
         endSimulation = Semaphore(0) #wait end simulation
-        genHomeFinished = Semaphore(0) #wait end home generation
+        genHomeFinished = Semaphore(0) 
 
         #_initialisation_Server_Socket_-----------------------------------------------------------
         HOST = "localhost"
@@ -245,25 +248,19 @@ if __name__ == '__main__':
         socketGestioner.start()
 
         #_creation_maisons_-----------------------------------------------------------------------
-        NOMBRE_HOME = 2
-        KEY = 666
-        genHomeProcess = Process(target= runGenHome, args=(HOST,PORT,NOMBRE_HOME,weatherFactor,KEY,genHomeFinished,))
-        genHomeProcess.start()
-        genHomeFinished.acquire()
-        
-        #_initialisation_durée_simulation---------------------------------------------------------
         NOMBRE_JOUR = 3
+        NOMBRE_HOME = 1
+        KEY = 666
+        genHomeProcess = Process(target= runGenHome, args=(HOST,PORT,NOMBRE_HOME,weatherFactor,KEY,genHomeFinished,NOMBRE_JOUR,))
+        genHomeProcess.start()
+        
+
+        #_initialisation_durée_simulation---------------------------------------------------------
         routine(NOMBRE_JOUR)
 
         #_Socket_closure_-------------------------------------------------------------------------
-        stopSimulation(HOST,PORT)
+        loopbackKill(HOST, PORT)
         socketGestioner.join()
+        genHomeProcess.join()
         print("End of Simulation")
-
-               
-
-
-    
-
         
-

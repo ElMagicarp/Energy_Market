@@ -52,15 +52,11 @@ class Weather():
         sunbeam.join()
 
         waitTemp.acquire()
-        print("temp OK")
         waitWind.acquire()
-        print("wind OK")
         waitSunBeam.acquire()
-        print("sun OK")
         sem.release()
-        print("waitTemp released")
 
-        #print("Ending process dataJour\n")
+        print("Ending process dataJour\n")
 
     # Définition du jour de l'année en fonction de t
     def jourAnnee(self):

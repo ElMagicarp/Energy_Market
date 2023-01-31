@@ -8,14 +8,16 @@ import csv
 import random
 import sys 
 import sysv_ipc
-from multiprocessing import Process
+import os
+import signal
+from multiprocessing import Process , Semaphore
 
 from home import Maison, runHome
 
 #-----------------------------------------------------------------------------------
 # Création de la liste des maisons de notre système
 
-def runGenHome(HOST,PORT,nombreMaison, weatherSharedMemory,key, sem):
+def runGenHome(HOST,PORT,nombreMaison,weatherSharedMemory,key,semGet,nombreJour):
     #_creer_messageQueue_-----------------------------------------------------------
     try:
         mq = sysv_ipc.MessageQueue(key, sysv_ipc.IPC_CREX)
@@ -28,7 +30,7 @@ def runGenHome(HOST,PORT,nombreMaison, weatherSharedMemory,key, sem):
                     random.choice([True,False]),
                     random.choices([True, False], weights=[0.1, 0.9])[0],
                     weatherSharedMemory=weatherSharedMemory,
-                    key = key, id = i) for i in range(nombreMaison)]
+                    key = key, id = i, nombreJour=nombreJour) for i in range(nombreMaison)]
     
     #_creer_data.csv_---------------------------------------------------------------
     header = ['id', 'haveSolarPanel', 'haveWindTurbine', 'havePikachu', 'nombrePersonnes']
@@ -41,10 +43,15 @@ def runGenHome(HOST,PORT,nombreMaison, weatherSharedMemory,key, sem):
 
     #_attribut_listeMaisons_à_chaque_maison_----------------------------------------
     for maison in listeMaisons:
+        semHome = Semaphore(0)
         maison.listeVoisins=listeMaisons
-        home = Process(target=runHome, args=(HOST,PORT,maison))
+        home = Process(target=runHome, args=(HOST,PORT,maison,))
         home.start()
-    sem.release()
+
+    semGet.release()
+
+    print("Ending process genhome\n")
+    os.kill(os.getpid(), signal.SIGKILL) 
     
 if "__main__" == __name__:
     runGenHome(0,0,5,[0,0,0,0],666)

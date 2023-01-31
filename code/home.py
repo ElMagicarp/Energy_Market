@@ -8,7 +8,6 @@ import sysv_ipc
 # Définition de la classe "Maison"
 
 client = True
-global clientSocketGlobal
 
 class Maison:
     '''
@@ -66,52 +65,6 @@ class Maison:
         
         return energie
 
-    
-    def socketConnect(self,HOST,PORT):
-        "Créer une socket pour se connecter au serveur"
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-            self.client_socket = client_socket
-            client_socket.connect((HOST, PORT))
-            socketHandler = threading.Thread(target = self.socket_handler, args = (self.client_socket,))
-            socketHandler.start()
-    
-    def socket_handler(self, s):
-        global client
-        while client:
-
-            '''
-            msg == 1 -> requête d'énergie
-            msg == 2 -> requête de paiement
-            msg == 3 -> ack paiement
-            msg == 4 -> requête de prix de vente de float kWh
-            msg == 5 -> réponse à 4 avec float €
-            msg == "stop" -> requête de fermeture
-
-            '''
-            with s:
-                print("Connected to server ")
-                data = s.recv(4096)
-                data = data.decode('utf-8')
-                msg=eval(data)
-                if msg[0] == 2:
-                    payment = msg[1][1]
-                    energieAchete = msg[1][2]
-                    self.coutEnergie -= payment
-                    self.quantiteEnergie += energieAchete
-                    s.send(str([3,payment]).encode())
-
-                elif msg[0] == 3:
-                    self.coutEnergie += msg[1]
-
-                elif msg[0] == 5:
-                    invoice = [self.quantiteEnergie,msg[1]] 
-                    s.send(str([2,invoice]).encode())
-
-                elif msg[0] == "stop":
-                    print("Terminating client")
-                    client = False
-                print("Disconnecting from server")
-
     def vendreEnergie(self):
         self.client_socket.send(str([4,self.quantiteEnergie]).encode())
 
@@ -136,34 +89,90 @@ class Maison:
     def routineEchangeEnergie(self):
         pass
     
-            
-    def run(self, HOST, PORT):
 
-        #_initialisation_socket_--------------------------------------------------------------------------------
-        self.socketConnect(HOST, PORT)
-        print("self.client_socket= "+str(self.client_socket))
 
-        #_initialisation_messageQueue_--------------------------------------------------------------------------
+def socket_handler(s):
+    global client
+    while client:
+
+        '''
+        msg == 1 -> requête d'éntergie
+        msg == 2 -> requête de paiement
+        msg == 3 -> ack paiement
+        msg == 4 -> requête de prix de vente de float kWh
+        msg == 5 -> réponse à 4 avec float €
+        msg == "stop" -> requête de fermeture
+
+        '''
+        print("Connected to server ")
+        data = s.recv(4096)
+        data = data.decode('utf-8')
+        msg=eval(data)
+        if msg[0] == 2:
+            payment = msg[1][1]
+            energieAchete = msg[1][0]
+            maison.coutEnergie -= payment
+            maison.quantiteEnergie += energieAchete
+            s.send(str([3,payment]).encode())
+
+        elif msg[0] == 3:
+            maison.coutEnergie += msg[1]
+
+        elif msg[0] == 5:
+            invoice = [maison.quantiteEnergie,msg[1]] 
+            s.send(str([2,invoice]).encode())
+
+        elif msg[0] == "stop":
+            print("Terminating client")
+            client = False
+            print("Disconnecting from server")
+
+
+
+def runHome( HOST, PORT, homeObj):
+
+    #_mise_maison_varGlobale_-------------------------------------------------------------------------------
+    global maison
+    maison = homeObj
+
+    print("run maison "+str(maison.id))
+
+    #_initialisation_socket_--------------------------------------------------------------------------------
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as clientSocket:
+        clientSocket.connect((HOST, PORT))
+        print("Global socket verif maison "+str(maison.id)+" "+str(clientSocket))
+
+        socketHandler = threading.Thread(target = socket_handler, args = (clientSocket,))
+        socketHandler.start()
+
+        maison.client_socket = clientSocket
+
+        #_initialisation_messageQueue_-----------------------------------------------------------------------
         try:
             global mq
-            mq = sysv_ipc.MessageQueue(self.key)
-            print("hello messageQueue "+str(self.key)+" I am "+str(self.id))
+            mq = sysv_ipc.MessageQueue(maison.key)
+            print("hello messageQueue "+str(maison.key)+" I am "+str(maison.id))
         except:
-            print("Cannot connect to message queue", self.key, ", terminating.")
+            print("Cannot connect to message queue", maison.key, ", terminating.")
             sys.exit(1) 
-    
-        #_routine_----------------------------------------------------------------------------------------------
+        
+        print("socket verif maison "+str(maison.id)+" "+str(clientSocket))
+
+        #_routine_-------------------------------------------------------------------------------------------
         while client:
 
-            if self.jour < self.weatherSharedMemory[3]:
-                #_Calcul_energie_maison_disponible_-----------------------------------------------------------------
-                self.quantiteEnergie =  self.productionEnregie() - self.besionEnergie()
+            if maison.jour < maison.weatherSharedMemory[3]:
+                #_Calcul_énergie_maison_disponible_----------------------------------------------------------
+                maison.quantiteEnergie =  maison.productionEnregie() - maison.besionEnergie()
 
-                #_résolution_energie_equilibre_---------------------------------------------------------------------
-                if self.quantiteEnergie > 0 :
-                    self.vendreEnergie()
+                #_résolution_énergie_équilibre_--------------------------------------------------------------
+                if maison.quantiteEnergie > 0 :
+                    maison.vendreEnergie()
                 else :
-                    self.acheterEnergie()
+                    maison.acheterEnergie()
 
-                self.jour = self.weatherSharedMemory[3] 
-                print ("jour "+str(self.jour)+" quantité energie maison "+str(self.id)+" : "+str(self.quantiteEnergie))
+                maison.jour = maison.weatherSharedMemory[3] 
+                print ("jour "+str(maison.jour)+" quantité energie maison "+str(maison.id)+" : "+str(maison.quantiteEnergie))
+    
+     
+    print("fin maison "+str(maison.id))

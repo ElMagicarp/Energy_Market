@@ -8,7 +8,7 @@ import select
 import concurrent.futures
 from external import External
 from weather import Weather
-from genHome import run
+from genHome import runGenHome
 
 global externalEvent
 serve = True
@@ -110,7 +110,7 @@ def socket_handler(s, a):
         elif msg[0] == "stop":
             print("Terminating time server!")
             serve = False
-        print("Disconnecting from client: ", a)
+            print("Disconnecting from client: ", a)
 
 def loopbackKill(HOST, PORT):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
@@ -222,19 +222,19 @@ if __name__ == '__main__':
         HOST = "localhost"
         PORT = 1789
         socketGestioner = threading.Thread (target =socketConnect,args=(HOST, PORT,))
+        socketGestioner.start()
 
         #_creation_maisons_-----------------------------------------------------------------------
-        NOMBRE_HOME = 5
+        NOMBRE_HOME = 2
         KEY = 666
-        genHomeProcess = Process(target= run, args=(HOST,PORT,NOMBRE_HOME,weatherFactor,KEY,))
+        genHomeProcess = Process(target= runGenHome, args=(HOST,PORT,NOMBRE_HOME,weatherFactor,KEY,))
         genHomeProcess.start()
+        genHomeProcess.join()
         
-    
         #_initialisation_durée_simulation---------------------------------------------------------
-        NOMBRE_JOUR = 10
+        NOMBRE_JOUR = 1
         routineMarket = threading.Thread (target = routine, args=(NOMBRE_JOUR,))
 
-        socketGestioner.start()
         routineMarket.start()
         endSimulation.acquire()
 

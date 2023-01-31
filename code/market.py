@@ -132,7 +132,7 @@ def stopSimulation(HOST, PORT):
     loopbackKill(HOST,PORT)
 
 def routine(NOMBRE_JOUR):
-
+    Yprice = []
     #_routine_--------------------------------------------------------------------------------
     Yprice = []
     weatherFactor[3]=0
@@ -181,7 +181,6 @@ def routine(NOMBRE_JOUR):
         Yprice.append(energyMarket.currentEnergyPrice)
 
         print("Current energy price {}\n".format(str(energyMarket.currentEnergyPrice)))
-
     header = ['prixJour']
     with open('price.csv', 'w', newline='') as f:
         writer = csv.writer(f)

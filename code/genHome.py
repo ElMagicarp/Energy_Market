@@ -14,7 +14,7 @@ from home import Maison, runHome
 #-----------------------------------------------------------------------------------
 # Création de la liste des maisons de notre système
 
-def runGenHome(HOST,PORT,nombreMaison, weatherSharedMemory,key):
+def runGenHome(HOST,PORT,nombreMaison, weatherSharedMemory,key, sem):
     #_creer_messageQueue_-----------------------------------------------------------
     try:
         mq = sysv_ipc.MessageQueue(key, sysv_ipc.IPC_CREX)
@@ -39,13 +39,13 @@ def runGenHome(HOST,PORT,nombreMaison, weatherSharedMemory,key):
                             maison.havePikachu, maison.nombrePersonnes])
 
     #_attribut_listeMaisons_à_chaque_maison_----------------------------------------
-    for maison in listeMaisons:       
+    for maison in listeMaisons:
         maison.listeVoisins=listeMaisons
         home = Process(target=runHome, args=(HOST,PORT,maison))
         home.start()
+    sem.release()
 
-
-
+    
 if "__main__" == __name__:
     runGenHome(0,0,5,[0,0,0,0],666)
 

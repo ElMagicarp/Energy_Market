@@ -160,8 +160,11 @@ def runHome( HOST, PORT, homeObj):
 
         #_routine_-------------------------------------------------------------------------------------------
         while client:
+            
+            print("maison "+str(maison.id)+" jour "+str(maison.jour))
+            print("maison "+str(maison.id)+" sharedMemory "+str(maison.weatherSharedMemory))
 
-            if maison.jour < maison.weatherSharedMemory[3]:
+            if int(maison.jour) < int(maison.weatherSharedMemory[3]):
                 #_Calcul_énergie_maison_disponible_----------------------------------------------------------
                 maison.quantiteEnergie =  maison.productionEnregie() - maison.besionEnergie()
 

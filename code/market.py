@@ -66,7 +66,7 @@ def socketConnect(HOST, PORT):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.setblocking(False)
         server_socket.bind((HOST, PORT))
-        server_socket.listen(4)
+        server_socket.listen(10)
         with concurrent.futures.ThreadPoolExecutor(max_workers = 10) as executor:
             while serve:
                 readable, writable, error = select.select([server_socket], [], [], 1)
@@ -217,6 +217,7 @@ if __name__ == '__main__':
         global endSimulation
         weatherSem = Semaphore(0) #wait update weatherFactor
         endSimulation = Semaphore(0) #wait end simulation
+        genHomeFinished = Semaphore(0) #wait end home generation
 
         #_initialisation_Server_Socket_-----------------------------------------------------------
         HOST = "localhost"
@@ -227,9 +228,9 @@ if __name__ == '__main__':
         #_creation_maisons_-----------------------------------------------------------------------
         NOMBRE_HOME = 2
         KEY = 666
-        genHomeProcess = Process(target= runGenHome, args=(HOST,PORT,NOMBRE_HOME,weatherFactor,KEY,))
+        genHomeProcess = Process(target= runGenHome, args=(HOST,PORT,NOMBRE_HOME,weatherFactor,KEY,genHomeFinished,))
         genHomeProcess.start()
-        genHomeProcess.join()
+        genHomeFinished.acquire()
         
         #_initialisation_durée_simulation---------------------------------------------------------
         NOMBRE_JOUR = 1

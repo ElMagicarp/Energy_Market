@@ -141,46 +141,43 @@ def runHome( HOST, PORT, homeObj):
     print("run maison "+str(maison.id))
 
     #_initialisation_socket_--------------------------------------------------------------------------------
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as clientSocket:
-        clientSocket.connect((HOST, PORT))
-        print("Global socket verif maison "+str(maison.id)+" "+str(clientSocket))
+    clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    clientSocket.connect((HOST, PORT))
+    print("Global socket verif maison "+str(maison.id)+" "+str(clientSocket))
 
-        socketHandler = threading.Thread(target = socket_handler, args = (clientSocket,))
-        socketHandler.start()
+    socketHandler = threading.Thread(target = socket_handler, args = (clientSocket,))
+    socketHandler.start()
 
-        maison.client_socket = clientSocket
+    maison.client_socket = clientSocket
 
-        #_initialisation_messageQueue_-----------------------------------------------------------------------
-        try:
-            global mq
-            mq = sysv_ipc.MessageQueue(maison.key)
-            print("hello messageQueue "+str(maison.key)+" I am "+str(maison.id))
-        except:
-            print("Cannot connect to message queue", maison.key, ", terminating.")
-            sys.exit(1) 
-        
-        print("socket verif maison "+str(maison.id)+" "+str(clientSocket))
+    #_initialisation_messageQueue_-----------------------------------------------------------------------
+    try:
+        global mq
+        mq = sysv_ipc.MessageQueue(maison.key)
+        print("hello messageQueue "+str(maison.key)+" I am "+str(maison.id))
+    except:
+        print("Cannot connect to message queue", maison.key, ", terminating.")
+        sys.exit(1) 
+    
+    print("socket verif maison "+str(maison.id)+" "+str(clientSocket))
 
-        #_routine_-------------------------------------------------------------------------------------------
-        while client:
+    #_routine_-------------------------------------------------------------------------------------------
+    while client:
 
-            if int(maison.jour) < int(maison.weatherSharedMemory[3]):
-                #_Calcul_énergie_maison_disponible_----------------------------------------------------------
-                maison.quantiteEnergie =  maison.productionEnregie() - maison.besionEnergie()
+        if int(maison.jour) < int(maison.weatherSharedMemory[3]):
+            #_Calcul_énergie_maison_disponible_----------------------------------------------------------
+            maison.quantiteEnergie =  maison.productionEnregie() - maison.besionEnergie()
 
-                #_résolution_énergie_équilibre_--------------------------------------------------------------
-                if maison.quantiteEnergie > 0 :
-                    maison.vendreEnergie()
-                else :
-                    maison.acheterEnergie()
+            #_résolution_énergie_équilibre_--------------------------------------------------------------
+            if maison.quantiteEnergie > 0 :
+                maison.vendreEnergie()
+            else :
+                maison.acheterEnergie()
 
-                maison.jour = maison.weatherSharedMemory[3] 
-                print ("jour "+str(maison.jour)+" quantité energie maison "+str(maison.id)+" : "+str(maison.quantiteEnergie))
+            maison.jour = maison.weatherSharedMemory[3] 
+            print ("jour "+str(maison.jour)+" quantité energie maison "+str(maison.id)+" : "+str(maison.quantiteEnergie))
 
-            maison.client_socket.send("alive".encode())
-            keepAlive = maison.client_socket.recv(4096)  
-            if not len(keepAlive):
-                print("The socket connection has been closed!")
-                sys.exit(1)
-     
+        maison.client_socket.send("alive".encode())
+
     print("fin maison "+str(maison.id))
+

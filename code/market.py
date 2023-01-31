@@ -7,6 +7,7 @@ import socket
 import select
 import concurrent.futures
 import time
+import csv
 from external import External
 from weather import Weather
 from genHome import runGenHome
@@ -111,8 +112,8 @@ def socket_handler(s, a):
             s.send(str([5,energyMarket.currentEnergyPrice*msg[1]]).encode())
             time.sleep(0.00001)
         
-        elif msg == "alive":
-            s.send("alive".encode())
+        elif msg == "alive" and closure == True:
+            s.send(str(["stop"]).encode())
             time.sleep(0.00001)
 
         elif msg[0] == "stop":
@@ -125,9 +126,17 @@ def loopbackKill(HOST, PORT):
         client_socket.connect((HOST, PORT))
         client_socket.send(str(["stop"]).encode())
 
+def stopSimulation(HOST, PORT):
+    global closure
+    closure = True
+    loopbackKill(HOST,PORT)
+
 def routine(NOMBRE_JOUR):
 
     #_routine_--------------------------------------------------------------------------------
+    Yprice = []
+    weatherFactor[3]=0
+
     for i in range(NOMBRE_JOUR):
         print("JOUR "+ str(i)+"\n")
         print("PID "+str(os.getpid()))
@@ -169,13 +178,16 @@ def routine(NOMBRE_JOUR):
 
         #_calcul_currentEnergyPrice-----------------------------------------------------------
         energyMarket.computeCurrentEnergyPrice()
+        Yprice.append(energyMarket.currentEnergyPrice)
 
         print("Current energy price {}\n".format(str(energyMarket.currentEnergyPrice)))
-        
-        weatherFactor[3]+=1
 
-    
-    endSimulation.release()
+    header = ['prixJour']
+    with open('price.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for prixJour in Yprice:
+            writer.writerow([prixJour])
     
 
 
@@ -210,7 +222,7 @@ if __name__ == '__main__':
                                                 ,"sold":energySold
                                                 ,"temperature":tempFactor
                                                 ,"wind":windSpeedFactor
-                                                ,"sunbeam":sunBeamFactor}, 
+                                                ,"sunbeam":sunBeamFactor},
                                 externalFactors = externalEvent)
         event=[0,0]
         externalGenerator = External()
@@ -218,7 +230,7 @@ if __name__ == '__main__':
 
         #_initialisation_sharedMemory_weatherFactor_----------------------------------------------
         global weatherFactor
-        weatherFactor = manager.list([0,0,0,0]) #["temperature", "wind", "sunbeam", "jour"]
+        weatherFactor = manager.list([-1,0,0,0]) #["temperature", "wind", "sunbeam", "jour"]
 
         #_initialisation_semaphore_---------------------------------------------------------------
         global weatherSem
@@ -241,16 +253,12 @@ if __name__ == '__main__':
         genHomeFinished.acquire()
         
         #_initialisation_durée_simulation---------------------------------------------------------
-        NOMBRE_JOUR = 1
-        routineMarket = threading.Thread (target = routine, args=(NOMBRE_JOUR,))
-
-        routineMarket.start()
-        endSimulation.acquire()
+        NOMBRE_JOUR = 3
+        routine(NOMBRE_JOUR)
 
         #_Socket_closure_-------------------------------------------------------------------------
-        loopbackKill(HOST, PORT)
+        stopSimulation(HOST,PORT)
         socketGestioner.join()
-        routineMarket.join()
         print("End of Simulation")
 
                

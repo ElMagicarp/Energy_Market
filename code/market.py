@@ -7,6 +7,7 @@ import socket
 import select
 import concurrent.futures
 import time
+import csv
 from external import External
 from weather import Weather
 from genHome import runGenHome
@@ -126,7 +127,7 @@ def loopbackKill(HOST, PORT):
         client_socket.send(str(["stop"]).encode())
 
 def routine(NOMBRE_JOUR):
-
+    Yprice = []
     #_routine_--------------------------------------------------------------------------------
     for i in range(NOMBRE_JOUR):
         print("JOUR "+ str(i)+"\n")
@@ -171,12 +172,20 @@ def routine(NOMBRE_JOUR):
         energyMarket.computeCurrentEnergyPrice()
 
         print("Current energy price {}\n".format(str(energyMarket.currentEnergyPrice)))
+        Yprice.append(energyMarket.currentEnergyPrice)
         
         weatherFactor[3]+=1
-
+    
+    header = ['prixJour']
+    with open('price.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for prixJour in Yprice:
+            writer.writerow([prixJour])
     
     endSimulation.release()
-    
+
+
 
 
 if __name__ == '__main__':
@@ -241,7 +250,7 @@ if __name__ == '__main__':
         genHomeFinished.acquire()
         
         #_initialisation_durée_simulation---------------------------------------------------------
-        NOMBRE_JOUR = 1
+        NOMBRE_JOUR = 30
         routineMarket = threading.Thread (target = routine, args=(NOMBRE_JOUR,))
 
         routineMarket.start()

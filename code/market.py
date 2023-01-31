@@ -1,5 +1,4 @@
 #symbole triangle rempli
-import sys
 import os
 from multiprocessing import Process, Manager, Pipe, Semaphore
 import signal
@@ -9,9 +8,10 @@ import select
 import concurrent.futures
 from external import External
 from weather import Weather
-from genHome import run, Maison
+from genHome import run
 
 global externalEvent
+serve = True
 
 def handler (sig,frame):
         if sig == signal.SIGUSR1:
@@ -62,33 +62,7 @@ def computeContribution(factor):
         result+=(factor[event]).weight*(factor[event]).value
     return result
 
-def socket_handler(s, a):
-    global serve
-    with s:
-        print("Connected to client: ", a)
-        data = s.recv(1024)
-        msg = data.decode()[0]
-        if msg[0] == 1:
-            invoice = [msg[1],energyMarket.currentEnergyPrice*msg[1]]
-            s.send([2,invoice].encode)
-
-        elif msg[0] == 2:
-            payment = msg[1][1]
-            energyMarket.energyBought += msg[1][0]
-            s.send([3,payment].encode)
-
-        elif msg[0] == 3:
-            energyMarket.amoutEnergySold += msg[1]/energyMarket.currentEnergyPrice
-
-        elif msg[0] == 4:
-            s.send([5,energyMarket.currentEnergyPrice].encode)
-
-        elif msg[0] == "stop":
-            print("Terminating time server!")
-            serve = False
-        print("Disconnecting from client: ", a)
-
-def socketConnect(host, port):
+def socketConnect(HOST, PORT):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.setblocking(False)
         server_socket.bind((HOST, PORT))
@@ -99,11 +73,49 @@ def socketConnect(host, port):
                 if server_socket in readable:
                     client_socket, address = server_socket.accept()
                     executor.submit(socket_handler, client_socket, address)
+                    
+def socket_handler(s, a):
 
-def loopback(host, port):
+    '''
+    msg == 1 -> requête d'énergie
+    msg == 2 -> requête de paiement
+    msg == 3 -> ack paiement
+    msg == 4 -> requête de prix de vente de float kWh
+    msg == 5 -> réponse à 4 avec float €
+    msg == "stop" -> requête de fermeture
+
+    '''
+    global serve
+    with s:
+        print("Connected to client: ", a)
+        data = s.recv(4096)
+        data = data.decode('utf-8')
+        msg=eval(data)
+
+        if msg[0] == 1:
+            invoice = [msg[1],energyMarket.currentEnergyPrice*msg[1]]
+            s.send(str([2,invoice]).encode())
+
+        elif msg[0] == 2:
+            payment = msg[1][1]
+            energyMarket.energyBought += msg[1][0]
+            s.send(str([3,payment]).encode())
+
+        elif msg[0] == 3:
+            energyMarket.amoutEnergySold += msg[1]/energyMarket.currentEnergyPrice
+
+        elif msg[0] == 4:
+            s.send(str([5,energyMarket.currentEnergyPrice*msg[1]]).encode())
+
+        elif msg[0] == "stop":
+            print("Terminating time server!")
+            serve = False
+        print("Disconnecting from client: ", a)
+
+def loopbackKill(HOST, PORT):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect((HOST, PORT))
-        return client_socket
+        client_socket.send(str(["stop"]).encode())
 
 def routine(NOMBRE_JOUR):
 
@@ -114,6 +126,7 @@ def routine(NOMBRE_JOUR):
 
         #_initialisation_pipe_weatherFactor_---------------------------------------------------
         parentConn, childConn = Pipe()
+
         global pipe
         pipe = {"parentConn": parentConn
                 ,"childConn": childConn}
@@ -199,12 +212,6 @@ if __name__ == '__main__':
         global weatherFactor
         weatherFactor = manager.list([0,0,0,0]) #["temperature", "wind", "sunbeam", "jour"]
 
-        #_creation_maisons_-----------------------------------------------------------------------
-        NOMBRE_HOME = 5
-        genHomeProcess = Process(target= run, args=(NOMBRE_HOME,weatherFactor,))
-        genHomeProcess.start()
-        genHomeProcess.join()
-
         #_initialisation_semaphore_---------------------------------------------------------------
         global weatherSem
         global endSimulation
@@ -215,24 +222,29 @@ if __name__ == '__main__':
         HOST = "localhost"
         PORT = 1789
         socketGestioner = threading.Thread (target =socketConnect,args=(HOST, PORT,))
+
+        #_creation_maisons_-----------------------------------------------------------------------
+        NOMBRE_HOME = 5
+        KEY = 666
+        genHomeProcess = Process(target= run, args=(HOST,PORT,NOMBRE_HOME,weatherFactor,KEY,))
+        genHomeProcess.start()
+        
     
         #_initialisation_durée_simulation---------------------------------------------------------
-        NOMBRE_JOUR = 30
+        NOMBRE_JOUR = 10
         routineMarket = threading.Thread (target = routine, args=(NOMBRE_JOUR,))
 
         socketGestioner.start()
         routineMarket.start()
-
-        socketGestioner.join()
         endSimulation.acquire()
 
         #_Socket_closure_-------------------------------------------------------------------------
-        loopbackSocket = loopback(HOST, PORT)
-        loopbackSocket.send(["stop"])
+        loopbackKill(HOST, PORT)
+        socketGestioner.join()
         routineMarket.join()
+        print("End of Simulation")
 
                
-#print("Ending process market\n")
 
 
     

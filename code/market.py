@@ -6,6 +6,7 @@ import threading
 import socket
 import select
 import concurrent.futures
+import time
 from external import External
 from weather import Weather
 from genHome import runGenHome
@@ -95,17 +96,24 @@ def socket_handler(s, a):
         if msg[0] == 1:
             invoice = [msg[1],energyMarket.currentEnergyPrice*msg[1]]
             s.send(str([2,invoice]).encode())
+            time.sleep(0.00001)
 
         elif msg[0] == 2:
             payment = msg[1][1]
             energyMarket.energyBought += msg[1][0]
             s.send(str([3,payment]).encode())
+            time.sleep(0.00001)
 
         elif msg[0] == 3:
             energyMarket.amoutEnergySold += msg[1]/energyMarket.currentEnergyPrice
 
         elif msg[0] == 4:
             s.send(str([5,energyMarket.currentEnergyPrice*msg[1]]).encode())
+            time.sleep(0.00001)
+        
+        elif msg == "alive":
+            s.send("alive".encode())
+            time.sleep(0.00001)
 
         elif msg[0] == "stop":
             print("Terminating time server!")

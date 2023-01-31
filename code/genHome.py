@@ -4,6 +4,7 @@
 
 #_importation_modules_--------------------------------------------------------------
 
+import csv
 import random
 import sys 
 import sysv_ipc
@@ -44,11 +45,6 @@ def runGenHome(HOST,PORT,nombreMaison, weatherSharedMemory,key, sem):
         home = Process(target=runHome, args=(HOST,PORT,maison))
         home.start()
     sem.release()
-
     
 if "__main__" == __name__:
     runGenHome(0,0,5,[0,0,0,0],666)
-
-
-
-

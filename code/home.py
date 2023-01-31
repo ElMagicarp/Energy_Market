@@ -4,6 +4,7 @@ import socket
 import random
 import threading
 import sysv_ipc
+import time
 
 # Définition de la classe "Maison"
 
@@ -114,6 +115,7 @@ def socket_handler(s):
             maison.coutEnergie -= payment
             maison.quantiteEnergie += energieAchete
             s.send(str([3,payment]).encode())
+            time.sleep(0.00001)
 
         elif msg[0] == 3:
             maison.coutEnergie += msg[1]
@@ -121,6 +123,7 @@ def socket_handler(s):
         elif msg[0] == 5:
             invoice = [maison.quantiteEnergie,msg[1]] 
             s.send(str([2,invoice]).encode())
+            time.sleep(0.00001)
 
         elif msg[0] == "stop":
             print("Terminating client")
@@ -160,9 +163,6 @@ def runHome( HOST, PORT, homeObj):
 
         #_routine_-------------------------------------------------------------------------------------------
         while client:
-            
-            print("maison "+str(maison.id)+" jour "+str(maison.jour))
-            print("maison "+str(maison.id)+" sharedMemory "+str(maison.weatherSharedMemory))
 
             if int(maison.jour) < int(maison.weatherSharedMemory[3]):
                 #_Calcul_énergie_maison_disponible_----------------------------------------------------------
@@ -176,6 +176,11 @@ def runHome( HOST, PORT, homeObj):
 
                 maison.jour = maison.weatherSharedMemory[3] 
                 print ("jour "+str(maison.jour)+" quantité energie maison "+str(maison.id)+" : "+str(maison.quantiteEnergie))
-    
+
+            maison.client_socket.send("alive".encode())
+            keepAlive = maison.client_socket.recv(4096)  
+            if not len(keepAlive):
+                print("The socket connection has been closed!")
+                sys.exit(1)
      
     print("fin maison "+str(maison.id))

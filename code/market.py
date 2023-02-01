@@ -294,7 +294,7 @@ if __name__ == '__main__':
 
         #_creation_maisons_-----------------------------------------------------------------------
         NOMBRE_JOUR = 720*2
-        NOMBRE_HOME = 2
+        NOMBRE_HOME = 5
         KEY = 666
         listHome = runGenHome(HOST,PORT,NOMBRE_HOME,KEY,genHomeFinished,NOMBRE_JOUR)
 

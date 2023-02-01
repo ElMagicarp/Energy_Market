@@ -11,10 +11,11 @@ from multiprocessing import Process,Pipe
 # Define External Class
 class External:
     '''
-    # Coef Externe
-    Permet de savoir si un évènement extérieur s'est produit :
-    - Evènements possibles : Guerre / Petrole
-    - run : modifie la valeur d'un évènement de manière aléatoire
+    Classe qui permet de savoir si un évènement extérieur s'est produit
+    ## Argument:
+    - listCoef : liste des coefficients d'évènements possible : Guerre / Petrole
+    ## Méthode:
+    - run(self,event,childPipe) : modifie la valeur d'un évènement de manière aléatoire (None)
     '''
 
     def __init__(self):

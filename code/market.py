@@ -38,7 +38,6 @@ class Factor():
 
 
 class Market():
-
     def __init__(self, currentEnergyPrice = 1, longtermeAttenuation = 1 , amoutEnergyBought = 0, amoutEnergySold = 0, internalFactors = {}, externalFactors = {}, connPipe = {}):
         self.connPipe = connPipe
         self.currentEnergyPrice = currentEnergyPrice
@@ -169,11 +168,8 @@ def runGenHome(HOST,PORT,nombreMaison,key,semGet,nombreJour):
 
 
 def routine(NOMBRE_JOUR, listeMaisons):
-    Yprice = []
     #_routine_--------------------------------------------------------------------------------
-    Yprice = []
     weatherFactor[3]=0
-
 
     for i in range(NOMBRE_JOUR):
 
@@ -230,6 +226,8 @@ def routine(NOMBRE_JOUR, listeMaisons):
     
         time.sleep(0.001)
 
+    #_Enrgegistrement_données_prix
+    Yprice = []
     header = ['prixJour']
     with open('price.csv', 'w', newline='') as f:
         writer = csv.writer(f)

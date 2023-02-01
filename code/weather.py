@@ -17,12 +17,15 @@ from math import *
 # CLASSES METEO
 class Weather():
     '''
-    Arguments: t (int) : jour de l'année
-    Méthodes: jourAnnee() : renvoie le jour de l'année
-            tempJour() : renvoie la température du jour 
-            ensJour() : renvoie le taux d'ensoleillement du jour
-            ventJour() : renvoie l'indice de vent du jour
-            afficheStatJour() : affiche les statistiques du jour
+    ## Arguments:
+    - t : jour de l'année (int)
+    ## Méthodes: 
+    - dataJour(self, list, sem) : met à jour les paramétres de meteo (None)
+    - jourAnnee(self) : renvoie le jour de l'année (list)
+    - tempJour(self,list,waitData) : calcule la température du jour (None)
+    - ensJour() : calcule l'ensoleillement du jour (None)
+    - ventJour() : calcule le vent du jour (None)
+    - afficheStatJour() : affiche les statistiques du jour (str)
     '''
 
     def __init__(self,t):

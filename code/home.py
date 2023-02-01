@@ -18,19 +18,31 @@ class Maison:
     '''
     classe représentant une maison
     ## Attribut
+    - id : identifiant de la maison (int)
+    - key : clé de la maison (int)
+    - client_socket : socket de la maison (socket)
+    - weatherSharedMemory : mémoire partagée de la météo (list)
+    - coutEnergie : cout de l'énergie de la maison consommé par le market (float)
     - quantiteEnergie : quantité d'énergie de la maison (None)
     - haveSolarPanel : retourne Vrai si la maison possède des panneaux solaires (Bool)
     - haveWindTurbine : retounre Faux si la maison possède une éoliène (Bool)
+    - havePikachu : retourne Vrai si la maison possède un pikachu (Bool)
     - nombrePersonnes : Nombre de personne dans une maison (int)
     - listeVoisins : Liste des maisons dans notre système (list)
-    - listBesoinListe : liste qui énumère pour chaque jour la consommation énergétique nécessaire (float)
-    -
+    - besoinJour : Besoin d'énergie journalier de la maison (float)
+    - jour : jour de l'année (int)
+    - nombreJour : nombre de jour dans l'année (int)
     ## Méthodes
     - besoinEnergie : Retourne le besoin d'énergie journalier de la maison en fonction de la température et du nombre de personne (float)
-    - demandePrix : Demande le prix du kwh jounalier (float)
     - productionEnergie : Retourne la quantité d'énergie quotidienne fournie par la maison et l'ajoute à quantiteEnergie (float)
-    - faireUneSocket : process de socket entre genHome et market
-    - run : actions quotidiennes d'une maison
+    - vendreEnergie : envoie de socket la quantité d'énergie vendue à la maison (None)
+    - acheterEnergie : envoie de socket la quantité d'énergie achetée à la maison (None)
+    - isHomeAlive : envoie de socket un message de vie à la maison (None)
+    - miseSurMarcher : protocole message queue pour mettre la maison sur le marché (None)
+    - creatSocket : création de socket entre la maison et le marché (None)
+    - setSocketConnection : création de socket entre la maison et le marché (None)
+    - socket_handler : envoie des messages de socket entre la maison et le marché (None)
+    - runHome : fonction principale de la maison (None)
     '''
 
     def __init__(self, quantiteEnergie, haveSolarPanel, haveWindTurbine, havePikachu, listeVoisins = [], coutEnergie =0, key = 666, id = None, jour = -1, nombreJour=0):
@@ -106,7 +118,7 @@ def creatSocket(HOST,PORT):
     return clientSocket
 
 def setSocketConnection(HOST, PORT):
-    #_initialisation_socket_--------------------------------------------------------------------------------7
+    #_initialisation_socket_--------------------------------------------------------------------------------
     clientSocket = creatSocket(HOST, PORT)
    # print("\033[96m"+"Global socket verif maison "+str(maison.id)+" "+str(clientSocket)+"\033[0m")
     socketHandler = threading.Thread(target = socket_handler, args = (clientSocket,HOST,PORT,))

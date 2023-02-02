@@ -45,7 +45,7 @@ class Maison:
     - runHome : fonction principale de la maison (None)
     '''
 
-    def __init__(self, quantiteEnergie, haveSolarPanel, haveWindTurbine, havePikachu, listeVoisins = [], coutEnergie =0, key = 666, id = None, jour = -1, nombreJour=0):
+    def __init__(self, quantiteEnergie, haveSolarPanel, haveWindTurbine, havePikachu, listeVoisins = [], coutEnergie =0, key = 666, id = None, jour = 0, nombreJour=0):
         self.id = id
         self.key = key
         self.client_socket = None
@@ -242,21 +242,15 @@ def runHome( HOST, PORT,home, list,sem):
                    # print ("\033[96m"+"j'achete"+"\033[0m")
                     maison.acheterEnergie(HOST,PORT)
                 
-            maison.jour = -1
+            maison.jour+= 1
             #print ("\033[96m"+"jour "+str(maison.jour)+" quantité energie maison "+str(maison.id)+" : "+str(maison.quantiteEnergie)+"\033[0m")
 
             timeRef = time.monotonic_ns()
             sem.release()
 
-        while maison.jour != list[3] :
-            maison.weatherSharedMemory = list
-            maison.jour = maison.weatherSharedMemory[3]
+        else:
             timeOut = time.monotonic_ns() - timeRef
             time.sleep(0.005)
-
-        else :
-            maison.weatherSharedMemory = list
-            maison.jour = maison.weatherSharedMemory[3]
 
 
     

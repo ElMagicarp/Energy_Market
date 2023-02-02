@@ -276,13 +276,11 @@ if __name__ == '__main__':
 
         #_initialisation_sharedMemory_weatherFactor_----------------------------------------------
         global weatherFactor
-        weatherFactor = manager.list([0,0,0,0]) #["temperature", "wind", "sunbeam", "jour"]
+        weatherFactor = manager.list([0,0,0,0]) #[int temperature, int wind, int sunshine, int jour]
 
         #_initialisation_semaphore_---------------------------------------------------------------
         global weatherSem
-        global endSimulation
         weatherSem = Semaphore(0) #wait update weatherFactor
-        endSimulation = Semaphore(0) #wait end simulation
         genHomeFinished = Semaphore(0)
 
 

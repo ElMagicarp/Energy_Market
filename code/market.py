@@ -50,15 +50,6 @@ class Market():
     def computeCurrentEnergyPrice(self):
         newPrice = self.longtermeAttenuation*self.currentEnergyPrice + computeContribution(self.internalFactors) + computeContribution(self.externalFactors)
         self.currentEnergyPrice = newPrice
-    
-    def eventIsActive(self):
-        res = []
-        for event in self.externalFactors:
-            print (self.externalFactors[event].type)
-            print (str(self.externalFactors[event].value) + "\n")
-            if self.externalFactors[event].value == 1:
-                res.append(self.externalFactors[event].type)
-        return res
 
 
 def computeContribution(factor):
@@ -92,12 +83,10 @@ def socket_handler(s, a):
     '''
     global serve
     with s:
-       # print("Connected to client: ", a)
         try:
             data = s.recv(4096)
             data = data.decode('utf-8')
             msg=eval(str(data))
-           # print("SERVER RECEIVED "+str(msg))
 
             if msg[0] == 1:
                 invoice = [msg[1],energyMarket.currentEnergyPrice*msg[1]]
@@ -111,22 +100,17 @@ def socket_handler(s, a):
                 time.sleep(0.00001)
 
             elif msg[0] == 3:
-               # print("\033[92m"+"Energie sold avant "+str(energyMarket.amoutEnergySold )+"\033[0m")
                 energyMarket.amoutEnergySold += msg[1]/energyMarket.currentEnergyPrice
-              #  print("\033[92m"+"Energie sold apres "+str(energyMarket.amoutEnergySold )+"\033[0m")
 
             elif msg[0] == 4:
                 s.send(str([5,energyMarket.currentEnergyPrice*msg[1]]).encode())
                 time.sleep(0.00001)
 
             elif msg[0] == "stop":
-               # print("Terminating time server!")
                 serve = False
-              #  print("Disconnecting from client: ", a)
 
         except:
             pass
-           # print("\033[91m"+"ERROR MESSAGE UNRECEIVABLE"+"\033[0m")
 
 
 def loopbackKill(HOST, PORT):
@@ -134,7 +118,8 @@ def loopbackKill(HOST, PORT):
         client_socket.connect((HOST, PORT))
         client_socket.send(str(["stop"]).encode())
 
-def runGenHome(HOST,PORT,nombreMaison,key,semGet,nombreJour):
+
+def runGenHome(HOST,PORT,nombreMaison,key,nombreJour, nouveauJour):
     #_creer_messageQueue_-----------------------------------------------------------
     try:
         mq = sysv_ipc.MessageQueue(key, sysv_ipc.IPC_CREX)
@@ -160,22 +145,20 @@ def runGenHome(HOST,PORT,nombreMaison,key,semGet,nombreJour):
     #_attribut_listeMaisons_à_chaque_maison_----------------------------------------
     for maison in listeMaisons:
         maison[0].listeVoisins=listeMaisons
-        homeProcess = Process(target=runHome, args=(HOST,PORT,maison[0],weatherFactor,maison[1],))
+        homeProcess = Process(target=runHome, args=(HOST,PORT,maison[0],weatherFactor,maison[1],nouveauJour))
         homeProcess.start()
 
-    semGet.release()
     return listeMaisons
 
 
-def routine(NOMBRE_JOUR, listeMaisons):
+def routine(NOMBRE_JOUR, listeMaisons, weatherSem,externalSem,nouveauJour):
     #_routine_--------------------------------------------------------------------------------
-    weatherFactor[3]=0
+    Yprice = []
 
     for i in range(NOMBRE_JOUR):
 
         
         print("JOUR "+ str(i)+"\n")
-        print("PID "+str(os.getpid()))
 
         #_initialisation_pipe_weatherFactor_---------------------------------------------------
         parentConn, childConn = Pipe()
@@ -186,7 +169,7 @@ def routine(NOMBRE_JOUR, listeMaisons):
         energyMarket.connPipe = pipe
 
         #_initialisation_Process_updateFacteurCalcul-------------------------------------------
-        externalProcess = Process(target= externalGenerator.run, args=(externalGenerator,energyMarket.connPipe["childConn"],))
+        externalProcess = Process(target= externalGenerator.run, args=(externalGenerator,energyMarket.connPipe["childConn"],external))
         weatherProcess = Process(target= weatherGenerator.dataJour, args=(weatherFactor,weatherSem,))
 
         #_lunch_Process_updateFacteurCalcul---------------------------------------------------
@@ -198,9 +181,13 @@ def routine(NOMBRE_JOUR, listeMaisons):
         print("\033[91m"+"Current Event war {}, petrol {}".format(str(energyMarket.externalFactors["warEvent"].value),str(energyMarket.externalFactors["petrolCrisisEvent"].value))+"\033[00m")
         weatherProcess.join()
 
-        #_wait_update_weatherFactor------------------------------------------------------------
+        #_wait_update_Factor------------------------------------------------------------------
         energyMarket.externalFactors = externalEvent
+        externalSem.acquire()
         weatherSem.acquire()
+        nouveauJour.release()
+        for maison in listeMaisons:
+            maison[1].acquire()
 
         #_update_weatherFactor----------------------------------------------------------------
         tempFactor.value = weatherFactor[0]
@@ -218,16 +205,12 @@ def routine(NOMBRE_JOUR, listeMaisons):
 
         print("\033[94m "+"Current energy price {}\n".format(str(energyMarket.currentEnergyPrice))+"\033[00m")
 
-
-        for maison in listeMaisons:
-            maison[1].acquire()
-        
+        nouveauJour.acquire()
         weatherFactor[3]+=1
     
         time.sleep(0.001)
 
     #_Enrgegistrement_données_prix
-    Yprice = []
     header = ['prixJour']
     with open('price.csv', 'w', newline='') as f:
         writer = csv.writer(f)
@@ -281,7 +264,10 @@ if __name__ == '__main__':
         #_initialisation_semaphore_---------------------------------------------------------------
         global weatherSem
         weatherSem = Semaphore(0) #wait update weatherFactor
-        genHomeFinished = Semaphore(0)
+        global external
+        external = Semaphore(0) #wait update externalFactor
+        global nouveauJour
+        nouveauJour = Semaphore(0) #wait nouveauJour
 
 
         #_initialisation_Server_Socket_-----------------------------------------------------------
@@ -291,16 +277,15 @@ if __name__ == '__main__':
         socketGestioner.start()
 
         #_creation_maisons_-----------------------------------------------------------------------
-        NOMBRE_JOUR = 720*2
-        NOMBRE_HOME = 5
+        NOMBRE_JOUR = 720
+        NOMBRE_HOME = 20
         KEY = 666
-        listHome = runGenHome(HOST,PORT,NOMBRE_HOME,KEY,genHomeFinished,NOMBRE_JOUR)
+        listHome = runGenHome(HOST,PORT,NOMBRE_HOME,KEY,NOMBRE_JOUR,nouveauJour)
 
         #_initialisation_durée_simulation---------------------------------------------------------
-        routine(NOMBRE_JOUR, listHome)
+        routine(NOMBRE_JOUR, listHome, weatherSem,external,nouveauJour)
 
         #_Socket_closure_-------------------------------------------------------------------------
         loopbackKill(HOST, PORT)
         socketGestioner.join()
         print("End of Simulation")
-        os.kill(os.getpid(),signal.SIGKILL)
